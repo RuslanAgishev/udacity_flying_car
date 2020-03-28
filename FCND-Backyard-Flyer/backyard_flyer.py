@@ -80,7 +80,7 @@ class BackyardFlyer(Drone):
                 self.takeoff_transition()
         elif self.flight_state == States.WAYPOINT:
             lp = np.array(self.local_position[:3]); lp[2] = -lp[2]
-            # print(np.linalg.norm(np.array(self.next_wp[:3]) - lp))
+            print( 'Distance to waypoint %.3f m'%(np.linalg.norm(np.array(self.next_wp[:3]) - lp)) )
             if self.armed:
                 if len(self.all_waypoints) > 0 and np.linalg.norm(np.array(self.next_wp[:3]) - lp) < self.wp_tol:
                     self.waypoint_transition()
