@@ -55,6 +55,10 @@ class Action(Enum):
     EAST = (0, 1, 1)
     NORTH = (-1, 0, 1)
     SOUTH = (1, 0, 1)
+    NORTH_WEST = (-1, -1, np.sqrt(2))
+    NORTH_EAST = (-1, 1, np.sqrt(2))
+    SOUTH_WEST = (1, -1, np.sqrt(2))
+    SOUTH_EAST = (1, 1, np.sqrt(2))
 
     @property
     def cost(self):
@@ -85,10 +89,22 @@ def valid_actions(grid, current_node):
     if y + 1 > m or grid[x, y + 1] == 1:
         valid_actions.remove(Action.EAST)
 
+    if (x - 1 < 0 or y - 1 < 0) or grid[x - 1, y - 1] == 1:
+        valid_actions.remove(Action.NORTH_WEST)
+    if (x - 1 < 0 or y + 1 > m) or grid[x - 1, y + 1] == 1:
+        valid_actions.remove(Action.NORTH_EAST)
+    if (x + 1 > n or y - 1 < 0) or grid[x + 1, y - 1] == 1:
+        valid_actions.remove(Action.SOUTH_WEST)
+    if (x + 1 > n or y + 1 > m) or grid[x + 1, y + 1] == 1:
+        valid_actions.remove(Action.SOUTH_EAST)
+
     return valid_actions
 
 
 def a_star(grid, h, start, goal):
+    if grid[goal[0], goal[1]] == 1 or grid[start[0], start[1]] == 1:
+        print('Start or goal is not valid')
+        return [], 0
 
     path = []
     path_cost = 0
@@ -102,6 +118,7 @@ def a_star(grid, h, start, goal):
     while not queue.empty():
         item = queue.get()
         current_node = item[1]
+        #print(current_node)
         if current_node == start:
             current_cost = 0.0
         else:              
@@ -177,3 +194,91 @@ def prune_path(path, eps=1e-6):
         else:
             i += 1
     return pruned_path
+
+##### PRM ####
+from shapely.geometry import Polygon, Point, LineString
+import networkx as nx
+from sklearn.neighbors import KDTree
+
+
+class Graph(nx.Graph):
+
+    def __init__(self, nodes, polygons):
+        super().__init__()
+        self.polygons = polygons
+        self.all_nodes = nodes
+        
+    def can_connect(self, p1,p2):
+        line = LineString([p1, p2])
+        for p in self.polygons:
+            if p.crosses(line) and p.height >= np.min([p1[2], p2[2]]):
+                return False
+        return True
+
+    def create_graph(self, k):
+        self.tree = KDTree(np.array(self.all_nodes), metric='euclidean')
+        for n in self.all_nodes:
+            # Extract indices of 3 closest points
+            idxs = self.tree.query([n], k=k, return_distance=False)[0]  
+            for ind in idxs:
+                if self.all_nodes[ind] != n:
+                    if self.can_connect(n, self.all_nodes[ind]):
+                        self.add_edge(n, self.all_nodes[ind], weight=np.linalg.norm(np.array(n)-self.all_nodes[ind]))
+
+
+def a_star_graph(graph, h, start, goal):
+    """Modified A* to work with NetworkX graphs."""
+
+    path = []
+    path_cost = 0
+    queue = PriorityQueue()
+    queue.put((0, start))
+    visited = set(start)
+
+    branch = {}
+    found = False
+    
+    while not queue.empty():
+        item = queue.get()
+        current_cost = item[0]
+        current_node = item[1]
+            
+        if current_node == goal:        
+            print('Found a path.')
+            found = True
+            break
+        else:                    
+            for next_node in graph[current_node]:
+                cost = graph.edges[current_node, next_node]['weight']
+                new_cost = current_cost + cost + heuristic(next_node, goal)
+                
+                if next_node not in visited:                
+                    visited.add(next_node)               
+                    queue.put((new_cost, next_node))
+                    
+                    branch[next_node] = (new_cost, current_node)
+             
+    if found:
+        # retrace steps
+        n = goal
+        path_cost = branch[n][0]
+        path.append(goal)
+        while branch[n][1] != start:
+            path.append(branch[n][1])
+            n = branch[n][1]
+        path.append(branch[n][1])
+    else:
+        print('**********************')
+        print('Failed to find a path!')
+        print('**********************')
+    
+    return np.array(path[::-1]), path_cost
+
+def find_graph_start_goal(graph, start, goal):
+    nodes = np.array(graph.nodes)
+    start_min_dist = np.linalg.norm(np.array(start) - nodes, axis=1).argmin()
+    near_start = nodes[start_min_dist]
+    goal_min_dist = np.linalg.norm(np.array(goal) - nodes, axis=1).argmin()
+    near_goal = nodes[goal_min_dist]
+    
+    return tuple(near_start), tuple(near_goal)

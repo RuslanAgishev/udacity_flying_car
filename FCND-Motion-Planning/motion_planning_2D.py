@@ -136,18 +136,41 @@ class MotionPlanning(Drone):
         # Read in obstacle map
         data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
         start = (int(start_ne[0]), int(start_ne[1]))
-        goal = (150, 10)
-        print(start_ne, start)
+        goal = (0, 0)
+
         # Define a grid for a particular altitude and safety margin around obstacles
         grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
         print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
         # Define starting point on the grid (this is just grid center)
-        grid_start = (start[0]-north_offset, start[1]-east_offset)
-        # TODO: convert start position to current position rather than map center
-        
+        grid_start = ( int(start_ne[0])-north_offset, int(start_ne[1])-east_offset )
+        # grid_goal = (250-north_offset, 250-east_offset)
+        # grid_goal = (-250-north_offset, 250-east_offset)
+        # grid_goal = (-north_offset, -east_offset)
+
         # Set goal as some arbitrary position on the grid
-        grid_goal = (goal[0]-north_offset, goal[1]-east_offset)
+        # goal_x = np.random.randint(0, grid.shape[0])
+        # goal_y = np.random.randint(0, grid.shape[1])
+        # while grid[goal_x, goal_y] == 1:
+        #     goal_x = np.random.randint(0, grid.shape[0])
+        #     goal_y = np.random.randint(0, grid.shape[1])
+        # grid_goal = (goal_x, goal_y)
+
         # TODO: adapt to set goal as latitude / longitude position and convert
+        angular_range = 0.005 # lat/lon range to localize a goal relative to home global pose
+        lat_goal = lat0 + (2*np.random.rand()-1)*angular_range
+        lon_goal = lon0 + (2*np.random.rand()-1)*angular_range
+        alt_goal = -TARGET_ALTITUDE
+        global_goal_pose = np.array([lon_goal, lat_goal, alt_goal])
+        goal_ne = global_to_local(global_goal_pose, global_home_pose)
+        goal_x, goal_y = int(goal_ne[0])-north_offset, int(goal_ne[1])-east_offset
+        while grid[goal_x, goal_y] == 1:
+            lat_goal = lat0 + (2*np.random.rand()-1)*angular_range
+            lon_goal = lon0 + (2*np.random.rand()-1)*angular_range
+            alt_goal = -TARGET_ALTITUDE
+            global_goal_pose = np.array([lon_goal, lat_goal, alt_goal])
+            goal_ne = global_to_local(global_goal_pose, global_home_pose)
+            goal_x, goal_y = int(goal_ne[0])-north_offset, int(goal_ne[1])-east_offset
+        grid_goal = (goal_x, goal_y)
 
         # Run A* to find a path from start to goal
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
