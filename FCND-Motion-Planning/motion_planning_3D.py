@@ -137,12 +137,12 @@ class MotionPlanning(Drone):
         start_local = global_to_local(self.global_position, self.global_home)
         graph_start = find_graph_nearest_node(self.graph, start_local)
         
-        goal_local = (start_local[0]+250., start_local[1]+15., 10.)
-        graph_goal = find_graph_nearest_node(self.graph, goal_local)
+        # goal_local = (start_local[0]+250., start_local[1]+15., 10.)
+        # graph_goal = find_graph_nearest_node(self.graph, goal_local)
         
         # Choosing goal position randomly
-        # random_index = np.random.randint(len(self.graph.nodes))
-        # graph_goal = list(self.graph.nodes)[random_index]
+        random_index = np.random.randint(len(self.graph.nodes))
+        graph_goal = list(self.graph.nodes)[random_index]
 
         
         print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
