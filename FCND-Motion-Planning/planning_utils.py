@@ -274,11 +274,8 @@ def a_star_graph(graph, h, start, goal):
     
     return np.array(path[::-1]), path_cost
 
-def find_graph_start_goal(graph, start, goal):
+def find_graph_nearest_node(graph, pose):
     nodes = np.array(graph.nodes)
-    start_min_dist = np.linalg.norm(np.array(start) - nodes, axis=1).argmin()
-    near_start = nodes[start_min_dist]
-    goal_min_dist = np.linalg.norm(np.array(goal) - nodes, axis=1).argmin()
-    near_goal = nodes[goal_min_dist]
-    
-    return tuple(near_start), tuple(near_goal)
+    min_dist = np.linalg.norm(np.array(pose) - nodes, axis=1).argmin()
+    near = nodes[min_dist]
+    return tuple(near)
