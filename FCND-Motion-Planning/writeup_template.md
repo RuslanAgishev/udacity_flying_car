@@ -3,16 +3,15 @@
 
 ---
 
-
-# Required Steps for a Passing Submission:
+# Required Steps:
 1. Load the 2.5D map in the colliders.csv file describing the environment.
 2. Discretize the environment into a grid or graph representation.
 3. Define the start and goal locations.
 4. Perform a search using A* or other search algorithm.
 5. Use a collinearity test or ray tracing method (like Bresenham) to remove unnecessary waypoints.
 6. Return waypoints in local ECEF coordinates (format for `self.all_waypoints` is [N, E, altitude, heading], where the drone’s start location corresponds to [0, 0, 0, 0].
-7. Write it up.
-8. Congratulations!  Your Done!
+7. Send waypoints to the flight controller.
+8. Enjoy the flight.
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/1534/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -24,12 +23,18 @@ Below I describe how I addressed each rubric point and where in my code each poi
 
 ### Explain the Starter Code
 
-#### 1. Explain the functionality of what's provided in `motion_planning.py` and `planning_utils.py`
-These scripts contain a basic planning implementation that includes...
+#### 1. Main functionality is provided in `motion_planning_2D.py` (or `motion_planning_3D.py`) and `planning_utils.py`
+In motion planning scripts the UAV transition states logic is implemented as well as sending waypoints commands to the flight controller.
+Planning utils is dedicated to provide main path planning functions, which are responsible for building a path ob the given map. Two approaches are considered in this work (planar: A* planning on a grid, spatial: A* planning on a PRM-graph).
 
 
 ### Implementing Planar Path Planning Algorithm (A* star 2D on a grid).
+
 Main functionality is implemented [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_2D.py).
+
+In order to test the planning solution:
+    1. start the [simulator](https://github.com/udacity/FCND-Simulator-Releases)
+    2. run the planning script: ```python motion_planning_2D.py```
 
 #### 1. Set your global home position
 Read provided `colliders.csv` file and extract from it initial global position as latitude / longitude coordinates.
@@ -171,8 +176,34 @@ Ones all the necessary preflight steps are implemented, it is important to visua
 
 Here you can see the map slice at altitude 5 m (as occupancy grid) and a path from start to goal construct with the A* algorithm.
 
+Another possibility, is to represent the environment with graphs. For example, using [Voronoi diagrams](https://en.wikipedia.org/wiki/Voronoi_diagram) to build collision free roads, which intersections could serve as waupoints.
+Ones such a graph is constructed, we could run A* on the graph in order to find a path from the vertex closest to drone's current location to the goal vertex. Implementation details could be found [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/Path_Planning/2D/Voronoi.ipynb).
+
+<img src="https://github.com/RuslanAgishev/udacity_flying_car/blob/master/figures/voronoy_graph_a_star_search.png" width="800"/>
+
 # Extra Challenges: Planning waypoint trajectories in 3D (PRM).
+
+<img src="https://github.com/RuslanAgishev/udacity_flying_car/blob/master/figures/prm_unity.png" width="800"/>
+
 One possible options, that helps to move into 3D and construct our trajectories in space rather than only at a constant height, is by constructing a PRM graph of sampled collision free points in our environment.
+
+Main functionality is implemented [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py).
+
+In order to test the planning solution:
+    1. start the [simulator](https://github.com/udacity/FCND-Simulator-Releases)
+    2. run the planning script: ```python motion_planning_3D.py```
+
+3D implementation is very similar to a planar case. I will highlight here only the main differences.
+
+1. Based on the obstacles grid map, we sample collision free points (possible PRM graph nodes) [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py#L184). We also create obstacles [polygons](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py#L185) in order to test if it is possible to connect neighbouring sampled nodes with straight lines.
+
+2. Create  PRM gragh as our feasible paths representation, [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py#L189). Our MotionPlanning class takes the graph as [another input](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py#L209). The graph is constructed prior to flight, as it could take quite a long time.
+
+3. It is also important to modify A* planning algorithm to work with graph representation. This is done [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/17decbe8e48e3e28756c89cc44f828921e1842f3/FCND-Motion-Planning/planning_utils.py#L229). Ones the path is built, we exctract waypoints out of it and send them to flight controller [as usual](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py#L156).
+
+4. Obtained space-waypoints should be followed in all 3 directions (angles are not included in current implementation). That is why a waypoint reaching criterea should be [modified](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py#L54).
+
+Utility functions for PRM planning are implemented [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/planning_utils.py#L198).
 
 ### Execute the flight
   
