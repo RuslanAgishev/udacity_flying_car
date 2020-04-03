@@ -33,8 +33,10 @@ Planning utils is dedicated to provide main path planning functions, which are r
 Main functionality is implemented [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_2D.py).
 
 In order to test the planning solution:
-    1. start the [simulator](https://github.com/udacity/FCND-Simulator-Releases)
-    2. run the planning script: ```python motion_planning_2D.py```
+
+1. start the [simulator](https://github.com/udacity/FCND-Simulator-Releases)
+
+2. run the planning script: ```python motion_planning_2D.py```
 
 #### 1. Set your global home position
 Read provided `colliders.csv` file and extract from it initial global position as latitude / longitude coordinates.
@@ -190,8 +192,10 @@ One possible options, that helps to move into 3D and construct our trajectories 
 Main functionality is implemented [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_3D.py).
 
 In order to test the planning solution:
-    1. start the [simulator](https://github.com/udacity/FCND-Simulator-Releases)
-    2. run the planning script: ```python motion_planning_3D.py```
+
+1. start the [simulator](https://github.com/udacity/FCND-Simulator-Releases)
+
+2. run the planning script: ```python motion_planning_3D.py```
 
 3D implementation is very similar to a planar case. I will highlight here only the main differences.
 
@@ -209,4 +213,4 @@ Utility functions for PRM planning are implemented [here](https://github.com/Rus
   
 Flight results in the unity simulator could be found in [my google drive](https://drive.google.com/open?id=1XEN0o8oCgfHH_emuToS5IdMiRcSzkxxC).
 
-
+In order to meet real world challenges, like moving obstacles, and external disturbancies (wind), it is important to add replanning capability as well as a local planner, for example, [Artificial Potential Fields (APF)](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/Path_Planning/3D/Potential-Field.ipynb) method. A layered planner architecture (that utilizes [RRT](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/Path_Planning/3D/RRT.ipynb) and APF) could be found [here](https://github.com/RuslanAgishev/adaptive_swarm).
