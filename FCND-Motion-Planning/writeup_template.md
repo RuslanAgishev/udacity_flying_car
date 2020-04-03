@@ -28,7 +28,8 @@ Below I describe how I addressed each rubric point and where in my code each poi
 These scripts contain a basic planning implementation that includes...
 
 
-### Implementing Your Path Planning Algorithm
+### Implementing Planar Path Planning Algorithm (A* star 2D on a grid).
+Main functionality is implemented [here](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/motion_planning_2D.py).
 
 #### 1. Set your global home position
 Read provided `colliders.csv` file and extract from it initial global position as latitude / longitude coordinates.
@@ -43,7 +44,7 @@ self.set_home_position(longitude=lon0, latitude=lat0, altitude=alt0)
 ```
 
 #### 2. Set your current local position
-Here as long as you successfully determine your local position relative to global home you'll be all set.
+Determining drone local position relative to global home let us planning the route on the map starting from the current location.
 
 ```python
 # convert to current local position using global_to_local()
@@ -51,30 +52,47 @@ start_ne = global_to_local(self.global_position, self.global_home)
 ```
 
 #### 3. Set grid start position from local position
-This is another step in adding flexibility to the start location. As long as it works you're good to go!
+This is another step in adding flexibility to the start location. As long as determined on previous step local position (in meters relative to home) is found, it is further transformed to position on the grid map.
 
+Firstly we read map data (obstacles locations and their size).
 ```python
 # Read in obstacle map
 data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
+```
 
+Then we create a planar grid representation of occupied and free space. This is done by taking a slice from 2.5-map at a particular constant flight height (defined by variable ```TARGET_ALTITUDE```). Obstacles on the map are inflated by the ```SAFETY_DISTANCE``` constant value in X- and Y- directions. 
+```python
 # Define a grid for a particular altitude and safety margin around obstacles
 grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
+```
 
+The next step is to transform local drone position (in meters) to location on a grid in pixels (or number of 2D-cells relative to down-left grid corner).
+```python
 # Define starting point on the grid (this is just grid center)
 grid_start = ( int(start_ne[0])-north_offset, int(start_ne[1])-east_offset )
 ```
 
 #### 4. Set grid goal position from geodetic coords
-This step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within the map and have it rendered to a goal location on the grid.
+This step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within the map and have it rendered to a goal location on the grid. Ones random obstacles free goal location is determined, we can run our planner to construct a path from the drone's location. Random choice of the goal position let us test the planner without changing the goal location every time manually.
 
+First of all here, we define an angular range for latitudial and longitudial motions relative to home position (in degrees).
 ```python
 angular_range = 0.005 # lat/lon range to localize a goal relative to home global pose
+```
+Then we define global goal location randomly (altitude is fixed for planar motion).
+```python
 lat_goal = lat0 + (2*np.random.rand()-1)*angular_range
 lon_goal = lon0 + (2*np.random.rand()-1)*angular_range
 alt_goal = -TARGET_ALTITUDE
 global_goal_pose = np.array([lon_goal, lat_goal, alt_goal])
+```
+We transform further the global goal position into location on the given grid.
+```python
 goal_ne = global_to_local(global_goal_pose, global_home_pose)
 goal_x, goal_y = int(goal_ne[0])-north_offset, int(goal_ne[1])-east_offset
+```
+Ones it is done we check if the suggested location is valid (not lies inside an obstacle). We do this step until a collision-free location is chosen.
+```python
 while grid[goal_x, goal_y] == 1:
     lat_goal = lat0 + (2*np.random.rand()-1)*angular_range
     lon_goal = lon0 + (2*np.random.rand()-1)*angular_range
@@ -86,16 +104,16 @@ grid_goal = (goal_x, goal_y)
 ```
 
 #### 5. Modify A* to include diagonal motion (or replace A* altogether)
-Minimal requirement here is to modify the code in planning_utils() to update the A* implementation to include diagonal motions on the grid that have a cost of sqrt(2), but more creative solutions are welcome. Explain the code you used to accomplish this step.
+Minimal requirement here is to modify the code in planning_utils() to update the A* implementation to include diagonal motions on the grid that have a cost of sqrt(2), but more creative solutions are welcome.
 
-Define actions and weights for them:
+Define actions and weights for them, [src](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/planning_utils.py#L58):
 ```python
 NORTH_WEST = (-1, -1, np.sqrt(2))
 NORTH_EAST = (-1, 1, np.sqrt(2))
 SOUTH_WEST = (1, -1, np.sqrt(2))
 SOUTH_EAST = (1, 1, np.sqrt(2))
 ```
-Check whether the actions are valid:
+Check whether the actions are valid, [src](https://github.com/RuslanAgishev/udacity_flying_car/blob/master/FCND-Motion-Planning/planning_utils.py#L83):
 ```python
 if (x - 1 < 0 or y - 1 < 0) or grid[x - 1, y - 1] == 1:
     valid_actions.remove(Action.NORTH_WEST)
@@ -108,22 +126,12 @@ if (x + 1 > n or y + 1 > m) or grid[x + 1, y + 1] == 1:
 ```
 
 #### 6. Cull waypoints 
-For this step you can use a collinearity test or ray tracing method like Bresenham. The idea is simply to prune your path of unnecessary waypoints. Explain the code you used to accomplish this step.
+For this step we can use a collinearity test or ray tracing method like [Bresenham](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm). The idea is simply to prune your path of unnecessary waypoints.
 
+Here we check if it is possible to delete one of the three neighbour points if they meet collinearity criterea.
 ```python
-def point(p):
-    return np.array([p[0], p[1], 1.]).reshape(1, -1)
-
-def collinearity_check(p1, p2, p3, epsilon=1e-6):
-    m = np.concatenate((p1, p2, p3), 0)
-    det = np.linalg.det(m)
-    return abs(det) < epsilon
-
-# We're using collinearity here, but you could use Bresenham as well!
 def prune_path(path, eps=1e-6):
-    pruned_path = [p for p in path]
-    # TODO: prune the path!
-    
+    pruned_path = [p for p in path]  
     i = 0
     while i < len(pruned_path) - 2:
         p1 = point(pruned_path[i])
@@ -145,12 +153,29 @@ def prune_path(path, eps=1e-6):
     return pruned_path
 ```
 
-### Execute the flight
-#### 1. Does it work?
-It works!
-  
-# Extra Challenges: PRM
+The collinearity condition is implemented in the following method. Here we check if the matrix constructed by 3 points have full rank. In case if it is not satisfied (equivalent to matrix determinant is equal to zero) the 3 points must lie on one straight line. We also add a threshold (```eps=0.5```) to handle the case when the points are approximaly collinear.
+```python
+def point(p):
+    return np.array([p[0], p[1], 1.]).reshape(1, -1)
 
-For an extra challenge, consider implementing some of the techniques described in the "Real World Planning" lesson. You could try implementing a vehicle model to take dynamic constraints into account, or implement a replanning method to invoke if you get off course or encounter unexpected obstacles.
+def collinearity_check(p1, p2, p3, epsilon=0.5):
+    m = np.concatenate((p1, p2, p3), 0)
+    det = np.linalg.det(m)
+    return abs(det) < epsilon
+```
+We check each 3 neighbouring points in our path to prune it and ommit unnecessary waypoints. This will let us avoid quadrotor slow and jerky movements when the waypoints are very dense relative to each other.
+
+Ones all the necessary preflight steps are implemented, it is important to visualize the constructed path prior to the flight.
+
+<img src="https://github.com/RuslanAgishev/udacity_flying_car/blob/master/figures/a_star_city.png" width="800"/>
+
+Here you can see the map slice at altitude 5 m (as occupancy grid) and a path from start to goal construct with the A* algorithm.
+
+# Extra Challenges: Planning waypoint trajectories in 3D (PRM).
+One possible options, that helps to move into 3D and construct our trajectories in space rather than only at a constant height, is by constructing a PRM graph of sampled collision free points in our environment.
+
+### Execute the flight
+  
+Flight results in the unity simulator could be found in [my google drive](https://drive.google.com/open?id=1XEN0o8oCgfHH_emuToS5IdMiRcSzkxxC).
 
 
